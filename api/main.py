@@ -28,15 +28,22 @@ SENDGRID_SENDER_EMAIL = os.getenv("SENDGRID_SENDER_EMAIL")
 twilio_client = Client(TWILIO_SID, TWILIO_AUTH) if TWILIO_SID else None
 sendgrid_client = SendGridAPIClient(SENDGRID_API_KEY) if SENDGRID_API_KEY else None
 
-# 🔥 WhatsApp Sandbox Number
+# WhatsApp Sandbox Number
 WHATSAPP_SANDBOX_NUMBER = "whatsapp:+14155238886"
 
-# ---------------- DEMO RESTRICTION ----------------
+# ---------------- DEMO RESTRICTIONS ----------------
 ALLOWED_NUMBERS = [
     "+918329391715",
     "+919867542729",
     "+918097783653",
     "+919152274885"
+]
+
+ALLOWED_EMAILS = [
+    "chetankhachane655@gmail.com",
+    "akarekar27may@gmail.com",
+    "makhariadisha@gmail.com",
+    "ishakk1208@gmail.com"
 ]
 
 cluster_memory = {}
@@ -113,7 +120,7 @@ async def execute_campaign(file: UploadFile = File(...)):
 
         cluster_memory[int(cid)] = customers
 
-        # Determine recommended channel (ONLY whatsapp or email)
+        # Only WhatsApp or Email
         dominant_platform = (
             segment_df["most_active_platform"]
             .value_counts()
@@ -142,7 +149,6 @@ async def execute_campaign(file: UploadFile = File(...)):
         "segments": segments
     }
 
-# ---------------- SEND CAMPAIGN ----------------
 # ---------------- SEND CAMPAIGN ----------------
 @app.post("/send-campaign")
 async def send_campaign(payload: dict):
