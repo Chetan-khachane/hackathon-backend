@@ -143,6 +143,7 @@ async def execute_campaign(file: UploadFile = File(...)):
     }
 
 # ---------------- SEND CAMPAIGN ----------------
+# ---------------- SEND CAMPAIGN ----------------
 @app.post("/send-campaign")
 async def send_campaign(payload: dict):
 
@@ -159,51 +160,49 @@ async def send_campaign(payload: dict):
 
     for c in customers:
 
-    raw_phone = str(c["phone_number"]).strip().replace(" ", "")
-    email = str(c["email"]).strip().lower()
+        raw_phone = str(c["phone_number"]).strip().replace(" ", "")
+        email = str(c["email"]).strip().lower()
 
-    if not raw_phone.startswith("+"):
-        if raw_phone.startswith("91"):
-            raw_phone = "+" + raw_phone
-        else:
-            raw_phone = "+91" + raw_phone
+        if not raw_phone.startswith("+"):
+            if raw_phone.startswith("91"):
+                raw_phone = "+" + raw_phone
+            else:
+                raw_phone = "+91" + raw_phone
 
-    try:
+        try:
 
-        # -------- WHATSAPP (Sandbox Only) --------
-        if channel == "whatsapp" and twilio_client:
+            # -------- WHATSAPP --------
+            if channel == "whatsapp" and twilio_client:
 
-            # Restrict to teammate numbers only
-            if raw_phone not in ALLOWED_NUMBERS:
-                continue
+                if raw_phone not in ALLOWED_NUMBERS:
+                    continue
 
-            twilio_client.messages.create(
-                body=message,
-                from_=WHATSAPP_SANDBOX_NUMBER,
-                to=f"whatsapp:{raw_phone}"
-            )
-            sent += 1
+                twilio_client.messages.create(
+                    body=message,
+                    from_=WHATSAPP_SANDBOX_NUMBER,
+                    to=f"whatsapp:{raw_phone}"
+                )
+                sent += 1
 
-        # -------- EMAIL --------
-        elif channel == "email" and sendgrid_client:
+            # -------- EMAIL --------
+            elif channel == "email" and sendgrid_client:
 
-            # Restrict to teammate emails only
-            if email not in ALLOWED_EMAILS:
-                continue
+                if email not in ALLOWED_EMAILS:
+                    continue
 
-            email_message = Mail(
-                from_email=SENDGRID_SENDER_EMAIL,
-                to_emails=email,
-                subject="Personalized Insurance Offer - TrustAI",
-                html_content=f"<strong>{message}</strong><br><br>— Team TrustAI"
-            )
+                email_message = Mail(
+                    from_email=SENDGRID_SENDER_EMAIL,
+                    to_emails=email,
+                    subject="Personalized Insurance Offer - TrustAI",
+                    html_content=f"<strong>{message}</strong><br><br>— Team TrustAI"
+                )
 
-            sendgrid_client.send(email_message)
-            sent += 1
+                sendgrid_client.send(email_message)
+                sent += 1
 
-    except Exception as e:
-        print("TWILIO/SENDGRID ERROR:", str(e))
-        failed += 1
+        except Exception as e:
+            print("TWILIO/SENDGRID ERROR:", str(e))
+            failed += 1
 
     return {
         "cluster_id": cluster_id,
