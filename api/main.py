@@ -22,13 +22,14 @@ app.add_middleware(
 # ---------------- ENV ----------------
 TWILIO_SID = os.getenv("TWILIO_SID")
 TWILIO_AUTH = os.getenv("TWILIO_AUTH")
-TWILIO_NUMBER = os.getenv("TWILIO_NUMBER")
-
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDGRID_SENDER_EMAIL = os.getenv("SENDGRID_SENDER_EMAIL")
 
 twilio_client = Client(TWILIO_SID, TWILIO_AUTH) if TWILIO_SID else None
 sendgrid_client = SendGridAPIClient(SENDGRID_API_KEY) if SENDGRID_API_KEY else None
+
+# 🔥 WhatsApp Sandbox Number
+WHATSAPP_SANDBOX_NUMBER = "whatsapp:+14155238886"
 
 # ---------------- DEMO RESTRICTION ----------------
 ALLOWED_NUMBERS = [
@@ -112,13 +113,25 @@ async def execute_campaign(file: UploadFile = File(...)):
 
         cluster_memory[int(cid)] = customers
 
+        # Determine recommended channel (ONLY whatsapp or email)
+        dominant_platform = (
+            segment_df["most_active_platform"]
+            .value_counts()
+            .idxmax()
+        )
+
+        if "gmail" in dominant_platform:
+            recommended_channel = "email"
+        else:
+            recommended_channel = "whatsapp"
+
         segments.append({
             "cluster_id": int(cid),
             "customer_count": len(segment_df),
             "average_purchase_probability":
                 round(float(segment_df["purchase_probability"].mean()), 4),
             "insurance_type": dominant_insurance,
-            "recommended_channel": "whatsapp",
+            "recommended_channel": recommended_channel,
             "customers_preview": customers[:5]
         })
 
@@ -135,7 +148,7 @@ async def send_campaign(payload: dict):
 
     cluster_id = int(payload.get("cluster_id"))
     message = payload.get("message")
-    channel = payload.get("channel", "whatsapp")
+    channel = payload.get("channel", "whatsapp").lower()
 
     if cluster_id not in cluster_memory:
         return {"error": "Cluster not found"}
@@ -155,26 +168,17 @@ async def send_campaign(payload: dict):
             else:
                 raw_phone = "+91" + raw_phone
 
-        # Restrict to demo numbers
+        # Restrict to demo numbers only
         if raw_phone not in ALLOWED_NUMBERS:
             continue
 
         try:
 
-            # -------- SMS --------
-            if channel == "sms" and twilio_client:
+            # -------- WHATSAPP (Sandbox Only) --------
+            if channel == "whatsapp" and twilio_client:
                 twilio_client.messages.create(
                     body=message,
-                    from_=TWILIO_NUMBER,
-                    to=raw_phone
-                )
-                sent += 1
-
-            # -------- WHATSAPP --------
-            elif channel == "whatsapp" and twilio_client:
-                twilio_client.messages.create(
-                    body=message,
-                    from_=f"whatsapp:{TWILIO_NUMBER}",
+                    from_=WHATSAPP_SANDBOX_NUMBER,
                     to=f"whatsapp:{raw_phone}"
                 )
                 sent += 1
@@ -184,14 +188,14 @@ async def send_campaign(payload: dict):
                 email_message = Mail(
                     from_email=SENDGRID_SENDER_EMAIL,
                     to_emails=email,
-                    subject="Personalized Insurance Offer from TrustAI",
+                    subject="Personalized Insurance Offer - TrustAI",
                     html_content=f"<strong>{message}</strong><br><br>— Team TrustAI"
                 )
                 sendgrid_client.send(email_message)
                 sent += 1
 
         except Exception as e:
-            print("Error:", str(e))
+            print("TWILIO/SENDGRID ERROR:", str(e))
             failed += 1
 
     return {
